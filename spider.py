@@ -8,6 +8,7 @@ import json
 import re
 import time
 
+output_dir = "output"
 start_url = "https://www.xzcit.cn/"
 visited_urls = []  # 已经访问过的URL
 articles = []
@@ -33,7 +34,7 @@ def is_element(by, value):
         return False
     return True
 
-def smooth_scrol(scroll_step=300, wait_time=0.1):
+def smooth_scrol(scroll_step=320, wait_time=0.1):
     """
     按照指定步长和等待时间进行页面滚动。
     scroll_step: 每次滚动的像素数
@@ -76,13 +77,23 @@ def parse_articles_and_links(url):
     if is_element(By.CLASS_NAME, 'article'):
         title = driver.find_element(By.CLASS_NAME, 'arti_title').text
         content = driver.find_element(By.CLASS_NAME, 'entry')
+        author = driver.find_element(By.CLASS_NAME, 'arti_publisher').text.replace('作者：', '')
+        date = driver.find_element(By.CLASS_NAME, 'arti_update').text.replace('日期：', '')
         text = ''
         for p in content.find_elements(By.TAG_NAME, 'p'):
             if p.text != '':
                 text += p.text + '\n'
         text = "".join(re.split('\xa0| ', text))
-        articles.append({'title': title, 'content': text})
-        print({'title': title, 'content': text})
+        article = {'title': title, 'author': author, 'date': date, 'content': text}
+        articles.append(article)
+        print(article)
+
+        path = f'{output_dir}/{author}'
+        file_name = check_file_name(f"{date}_{title}.json")
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(os.path.join(path, file_name), "w", encoding='utf-8') as f:
+            json.dump(article, f, ensure_ascii=False, indent=4)
 
     # 提取页面中的所有链接
     for a in driver.find_elements(By.TAG_NAME, 'a'):
@@ -105,14 +116,18 @@ def crawl(url):
     for link in links:
         crawl(link)  # 递归调用自身处理新链接
 
-if __name__ == '__main__':
-    output_dir = "output"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    
-    crawl(start_url)
+def check_file_name(name):
+    """
+    检测Windows文件名是否合法
+    """
+    reg = re.compile(r'[\\/:*?"<>|\r\n]+')
+    valid_name = reg.findall(name)
+    if valid_name:
+        for nv in valid_name:
+            name = name.replace(nv, "_")
+    return name
 
-    with open(os.path.join(output_dir, f"articles_{time.strftime('%Y_%m_%d_%H_%M_%S', time.localtime())}.json"), "w", encoding='utf-8') as f:
-        json.dump(articles, f, ensure_ascii=False, indent=4)
+if __name__ == '__main__':
+    crawl(start_url)
 
     driver.quit()
