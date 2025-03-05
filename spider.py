@@ -4,11 +4,11 @@ from selenium.webdriver.edge.options import Options
 from selenium.webdriver.common.by import By
 from urllib.parse import urljoin, urlparse
 import os
-import json
+import jsonlines
 import re
 import time
 
-output_dir = "output"
+file_path = "output"
 start_url = "https://www.xzcit.cn/"
 visited_urls = []  # 已经访问过的URL
 articles = []
@@ -34,7 +34,7 @@ def is_element(by, value):
         return False
     return True
 
-def smooth_scrol(scroll_step=320, wait_time=0.1):
+def smooth_scrol(scroll_step=350, wait_time=0.1):
     """
     按照指定步长和等待时间进行页面滚动。
     scroll_step: 每次滚动的像素数
@@ -76,24 +76,22 @@ def parse_articles_and_links(url):
 
     if is_element(By.CLASS_NAME, 'article'):
         title = driver.find_element(By.CLASS_NAME, 'arti_title').text
-        content = driver.find_element(By.CLASS_NAME, 'entry')
+        body = driver.find_element(By.CLASS_NAME, 'entry')
         author = driver.find_element(By.CLASS_NAME, 'arti_publisher').text.replace('作者：', '')
-        date = driver.find_element(By.CLASS_NAME, 'arti_update').text.replace('日期：', '')
-        text = ''
-        for p in content.find_elements(By.TAG_NAME, 'p'):
+        dateStr = driver.find_element(By.CLASS_NAME, 'arti_update').text.replace('日期：', '')
+        date = time.strftime('%Y年%#m月%#d日', time.strptime(dateStr, '%Y-%m-%d'))
+        content = ''
+        for p in body.find_elements(By.TAG_NAME, 'p'):
             if p.text != '':
-                text += p.text + '\n'
-        text = "".join(re.split('\xa0| ', text))
-        article = {'title': title, 'author': author, 'date': date, 'content': text}
-        articles.append(article)
-        print(article)
+                content += p.text + '\n'
+        content = "".join(re.split('\xa0| ', content))
 
-        path = f'{output_dir}/{author}'
-        file_name = check_file_name(f"{date}_{title}.json")
-        if not os.path.exists(path):
-            os.makedirs(path)
-        with open(os.path.join(path, file_name), "w", encoding='utf-8') as f:
-            json.dump(article, f, ensure_ascii=False, indent=4)
+        if content != '':
+            article = {'title': title, 'author': author, 'date': date, 'content': content}
+            articles.append(article)
+            print(article)
+            with jsonlines.open(os.path.join(file_path, 'articles.jsonl'), mode='a') as f:
+                f.write(article)
 
     # 提取页面中的所有链接
     for a in driver.find_elements(By.TAG_NAME, 'a'):
@@ -128,6 +126,8 @@ def check_file_name(name):
     return name
 
 if __name__ == '__main__':
-    crawl(start_url)
+    if not os.path.exists(file_path):
+        os.makedirs(file_path)
 
+    crawl(start_url)
     driver.quit()
