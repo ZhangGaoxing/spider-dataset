@@ -74,24 +74,27 @@ def parse_articles_and_links(url):
     """提取文章信息和内部链接""" 
     links = []
 
-    if is_element(By.CLASS_NAME, 'article'):
-        title = driver.find_element(By.CLASS_NAME, 'arti_title').text
-        body = driver.find_element(By.CLASS_NAME, 'entry')
-        author = driver.find_element(By.CLASS_NAME, 'arti_publisher').text.replace('作者：', '')
-        dateStr = driver.find_element(By.CLASS_NAME, 'arti_update').text.replace('日期：', '')
-        date = time.strftime('%Y年%#m月%#d日', time.strptime(dateStr, '%Y-%m-%d'))
-        content = ''
-        for p in body.find_elements(By.TAG_NAME, 'p'):
-            if p.text != '':
-                content += p.text + '\n'
-        content = "".join(re.split('\xa0| ', content))
+    try:
+        if is_element(By.CLASS_NAME, 'article'):
+            title = driver.find_element(By.CLASS_NAME, 'arti_title').text
+            body = driver.find_element(By.CLASS_NAME, 'entry')
+            author = driver.find_element(By.CLASS_NAME, 'arti_publisher').text.replace('作者：', '')
+            dateStr = driver.find_element(By.CLASS_NAME, 'arti_update').text.replace('日期：', '')
+            date = time.strftime('%Y年%#m月%#d日', time.strptime(dateStr, '%Y-%m-%d'))
+            content = ''
+            for p in body.find_elements(By.TAG_NAME, 'p'):
+                if p.text != '':
+                    content += p.text + '\n'
+            content = "".join(re.split('\xa0| ', content))
 
-        if content != '':
-            article = {'title': title, 'author': author, 'date': date, 'content': content}
-            articles.append(article)
-            print(article)
-            with jsonlines.open(os.path.join(file_path, 'articles.jsonl'), mode='a') as f:
-                f.write(article)
+            if content != '':
+                article = {'date': date, 'author': author, 'title': title, 'content': content}
+                articles.append(article)
+                print(article)
+                with jsonlines.open(os.path.join(file_path, 'articles.jsonl'), mode='a') as f:
+                    f.write(article)
+    except Exception as e:
+        print("发生异常：", repr(e))
 
     # 提取页面中的所有链接
     for a in driver.find_elements(By.TAG_NAME, 'a'):
